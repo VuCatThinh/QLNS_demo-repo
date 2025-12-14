@@ -1,19 +1,8 @@
 import 'package:flutter/material.dart';
-import 'employee_list_page.dart';
-
-class Salary {
-  final Employee employee;
-  final double baseSalary;
-  int daysWorked;
-
-  Salary({
-    required this.employee,
-    required this.baseSalary,
-    this.daysWorked = 0,
-  });
-
-  double get totalSalary => baseSalary * daysWorked;
-}
+import '../../database/salary_dao.dart';
+import '../../database/employee_dao.dart';
+import '../../models/employee.dart';
+import '../../models/salary.dart';
 
 class SalaryPage extends StatefulWidget {
   const SalaryPage({super.key});
@@ -23,93 +12,142 @@ class SalaryPage extends StatefulWidget {
 }
 
 class _SalaryPageState extends State<SalaryPage> {
-  // Dữ liệu mẫu
-  List<Salary> salaries = [
-    Salary(
-      employee: Employee(
-        name: 'Nguyễn Văn A',
-        position: 'Quản lý',
-        avatarUrl: '',
-      ),
-      baseSalary: 300000,
-    ),
-    Salary(
-      employee: Employee(
-        name: 'Trần Thị B',
-        position: 'Nhân viên pha chế',
-        avatarUrl: '',
-      ),
-      baseSalary: 200000,
-    ),
-    Salary(
-      employee: Employee(name: 'Lê Văn C', position: 'Thu ngân', avatarUrl: ''),
-      baseSalary: 220000,
-    ),
-  ];
+  final EmployeeDAO _employeeDAO = EmployeeDAO();
+  final SalaryDAO _salaryDAO = SalaryDAO();
 
-  void _incrementDays(int index) {
+  int selectedMonth = DateTime.now().month;
+  int selectedYear = DateTime.now().year;
+
+  Map<int, Salary?> salaryMap = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSalaries();
+  }
+
+  Future<void> _loadSalaries() async {
+    final employees = await _employeeDAO.getAllEmployees();
+    final Map<int, Salary?> map = {};
+    for (var emp in employees) {
+      final salary = await _salaryDAO.getSalary(
+        emp.id!,
+        selectedMonth,
+        selectedYear,
+      );
+      map[emp.id!] = salary;
+    }
     setState(() {
-      salaries[index].daysWorked += 1;
+      salaryMap = map;
     });
   }
 
-  void _decrementDays(int index) {
-    setState(() {
-      if (salaries[index].daysWorked > 0) salaries[index].daysWorked -= 1;
-    });
+  /// Tính lương dựa trên lương cơ bản/giờ của nhân viên
+  Future<void> _calculateSalary(Employee emp) async {
+    final salary = await _salaryDAO.calculateSalaryFromEmployee(
+      emp.id!,
+      selectedMonth,
+      selectedYear,
+    );
+    await _salaryDAO.saveSalary(salary);
+    await _loadSalaries();
+  }
+
+  Future<void> _updateBonusPenalty(Salary salary) async {
+    final bonusController = TextEditingController(
+      text: salary.bonus.toString(),
+    );
+    final penaltyController = TextEditingController(
+      text: salary.penalty.toString(),
+    );
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cập nhật thưởng/phạt'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: bonusController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Thưởng'),
+            ),
+            TextField(
+              controller: penaltyController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Phạt'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final bonus = double.tryParse(bonusController.text) ?? 0;
+              final penalty = double.tryParse(penaltyController.text) ?? 0;
+              await _salaryDAO.updateBonusPenalty(salary.id!, bonus, penalty);
+              Navigator.pop(context);
+              await _loadSalaries();
+            },
+            child: const Text('Lưu'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Quản lý lương')),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: salaries.length,
-        itemBuilder: (context, index) {
-          final salary = salaries[index];
-          return Card(
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            elevation: 3,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundImage: NetworkImage(salary.employee.avatarUrl),
-                radius: 28,
-              ),
-              title: Text(
-                salary.employee.name,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Chức vụ: ${salary.employee.position}'),
-                  Text(
-                    'Lương cơ bản: ${salary.baseSalary.toStringAsFixed(0)} VNĐ',
+      body: FutureBuilder<List<Employee>>(
+        future: _employeeDAO.getAllEmployees(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData)
+            return const Center(child: CircularProgressIndicator());
+
+          final employees = snapshot.data!;
+          return ListView.builder(
+            itemCount: employees.length,
+            itemBuilder: (context, index) {
+              final emp = employees[index];
+              final salary = salaryMap[emp.id!];
+
+              return Card(
+                margin: const EdgeInsets.all(8),
+                child: ListTile(
+                  title: Text(emp.name),
+                  subtitle: salary == null
+                      ? const Text('Chưa tính lương')
+                      : Text(
+                          'Tổng giờ: ${salary.totalHours.toStringAsFixed(2)}h\n'
+                          'Lương cơ bản/giờ: ${salary.basicSalary.toStringAsFixed(0)} VND\n'
+                          'Thưởng: ${salary.bonus.toStringAsFixed(0)} | Phạt: ${salary.penalty.toStringAsFixed(0)}\n'
+                          'Tổng lương: ${salary.totalSalary.toStringAsFixed(0)} VND',
+                        ),
+                  isThreeLine: true,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ElevatedButton(
+                        onPressed: () => _calculateSalary(emp),
+                        child: const Text('Tính lương'),
+                      ),
+                      const SizedBox(width: 8),
+                      if (salary != null)
+                        ElevatedButton(
+                          onPressed: () => _updateBonusPenalty(salary),
+                          child: const Text('Cập nhật'),
+                        ),
+                    ],
                   ),
-                  Text('Ngày công: ${salary.daysWorked} ngày'),
-                  Text(
-                    'Tổng lương: ${salary.totalSalary.toStringAsFixed(0)} VNĐ',
-                  ),
-                ],
-              ),
-              trailing: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    onPressed: () => _incrementDays(index),
-                    icon: const Icon(Icons.add, color: Colors.green),
-                  ),
-                  IconButton(
-                    onPressed: () => _decrementDays(index),
-                    icon: const Icon(Icons.remove, color: Colors.red),
-                  ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           );
         },
       ),

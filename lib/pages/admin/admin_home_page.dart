@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'employee_list_page.dart';
-import 'shift_page.dart';
 import 'attendance_page.dart';
 import 'salary_page.dart';
 
@@ -10,15 +9,15 @@ class AdminHomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Trang quản trị'), centerTitle: true),
+      appBar: AppBar(title: const Text('Ứng dụng quản lý nhân sự')),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _buildModule(
-              context,
-              icon: Icons.people,
-              label: 'Nhân viên',
+            MenuButton(
+              title: 'Quản lý nhân viên',
+              icon: Icons.person,
               onTap: () {
                 Navigator.push(
                   context,
@@ -26,35 +25,23 @@ class AdminHomePage extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(height: 16),
-            _buildModule(
-              context,
-              icon: Icons.schedule,
-              label: 'Ca làm việc',
+            const SizedBox(height: 20),
+            MenuButton(
+              title: 'Chấm công nhân viên',
+              icon: Icons.access_time,
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const ShiftPage()),
+                  MaterialPageRoute(
+                    builder: (_) => const AttendanceManagementPage(),
+                  ),
                 );
               },
             ),
-            const SizedBox(height: 16),
-            _buildModule(
-              context,
-              icon: Icons.assignment,
-              label: 'Chấm công',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AttendancePage()),
-                );
-              },
-            ),
-            const SizedBox(height: 16),
-            _buildModule(
-              context,
+            const SizedBox(height: 20),
+            MenuButton(
+              title: 'Quản lý lương',
               icon: Icons.attach_money,
-              label: 'Lương',
               onTap: () {
                 Navigator.push(
                   context,
@@ -67,44 +54,32 @@ class AdminHomePage extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildModule(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
+/// Widget nút menu chính
+class MenuButton extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const MenuButton({
+    super.key,
+    required this.title,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return SizedBox(
-      width: double.infinity, // chiếm toàn bộ chiều ngang
-      height: 80, // chiều cao mỗi module
-      child: Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        elevation: 3,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Icon(icon, size: 36, color: Colors.blueAccent),
-                const SizedBox(width: 16),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                const Icon(
-                  Icons.arrow_forward_ios,
-                  size: 18,
-                  color: Colors.grey,
-                ),
-              ],
-            ),
-          ),
+      width: double.infinity,
+      height: 70,
+      child: ElevatedButton.icon(
+        icon: Icon(icon, size: 30),
+        label: Text(title, style: const TextStyle(fontSize: 20)),
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
         ),
       ),
     );

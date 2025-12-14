@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'theme/app_theme.dart';
 import 'pages/admin/admin_home_page.dart';
 
 void main() {
@@ -12,10 +11,10 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Quản lý nhân viên',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
+      title: 'Quản lý nhân sự',
+      theme: ThemeData(primarySwatch: Colors.blue),
       home: const AdminHomePage(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
